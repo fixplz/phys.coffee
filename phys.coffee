@@ -136,9 +136,15 @@ Body.methods =
   applySnap: (j, rn) ->
     @snap.addMult(j, @invMass)
     @asnap += j.dot(rn) * @invInertia
+  applySnapOpp: (j, rn) ->
+    @snap.subMult(j, @invMass)
+    @asnap -= j.dot(rn) * @invInertia
   applyVel: (j, rn) ->
     @vel.addMult(j, @invMass)
     @rot += j.dot(rn) * @invInertia
+  applyVelOpp: (j, rn) ->
+    @vel.subMult(j, @invMass)
+    @rot -= j.dot(rn) * @invInertia
 
 
 Collision =
@@ -217,50 +223,52 @@ Collision =
 
 
 Contact = -> {
-  a: null, b: null, n: Vec(), p: Vec(), t: 0
+  a: null, b: null, n: Vec(), n2: Vec(), p: Vec(), t: 0
   jN: 0, jT: 0, massN: 0, massT: 0, snapDist: 0
-  r1: Vec(), r2: Vec(), r1n: Vec(), r2n: Vec()
+  r1: Vec(), r2: Vec(), r1n: Vec(), r2n: Vec(), vobj: Vec()
   __proto__: Contact.methods
 }
 
 Contact.methods =
   update: (@a,@b, dist,n, p, @t) ->
-    @n.set(n); @p.set(p)
+    @n.set(n); @p.set(p); @n2.set(n).perp()
     @r1.set(p).sub(a.pos); @r1n.set(@r1).perp()
     @r2.set(p).sub(b.pos); @r2n.set(@r2).perp()
 
-    @massN = @kin(n); @massT = @kin(n.cp().perp())
+    @massN = @kin(@n); @massT = @kin(@n2)
 
     @snapDist = 0.2 * -Math.min(0, dist + 0.1)
 
-    @applyVel @n.cp().rotate(Vec(@jN,@jT))
+    @applyVel @vobj.set(@n).rotate(Vec(@jN,@jT))
 
   kin: (n) ->
     1 / ( @a.invMass + @b.invMass +
       @a.invInertia * Math.pow(@r1.cross(n),2) +
       @b.invInertia * Math.pow(@r2.cross(n),2) )
 
-  applySnap: (j) -> @a.applySnap(j.cp().opp(), @r1n); @b.applySnap(j, @r2n)
-  applyVel: (j) -> @a.applyVel(j.cp().opp(), @r1n); @b.applyVel(j, @r2n)
+  applySnap: (j) -> @a.applySnapOpp(j, @r1n); @b.applySnap(j, @r2n)
+  applyVel: (j) -> @a.applyVelOpp(j, @r1n); @b.applyVel(j, @r2n)
 
   rel: (bv,br, av,ar) ->
-    bv.cp().addMult(@r2n, br).sub(av).subMult(@r1n, ar)
+    @vobj.set(bv).addMult(@r2n, br).sub(av).subMult(@r1n, ar)
 
   perform: ->
-    v = @rel @b.vel, @b.rot, @a.vel, @a.rot
     s = @rel @b.snap, @b.asnap, @a.snap, @a.asnap
-    
+
     snapN = @massN * (@snapDist - s.dot(@n))
-    @applySnap @n.cp().mult(snapN) if snapN > 0
-    
+    # del s
+    @applySnap @vobj.set(@n).mult(snapN) if snapN > 0
+
+    v = @rel @b.vel, @b.rot, @a.vel, @a.rot
+
     jN = @massN * -v.dot(@n)
-    jT = @massT * -v.dot(@n.cp().perp())
+    jT = @massT * -v.dot(@n2)
 
     newN = Math.max(0, @jN + jN)
     limitT = newN * 0.8
     newT = Math.min(limitT, Math.max(-limitT, @jT + jT))
 
-    @applyVel @n.cp().rotate(Vec(newN - @jN, newT - @jT))
+    @applyVel @vobj.set(@n).rotate(Vec(newN - @jN, newT - @jT))
 
     @jN = newN; @jT = newT
 
