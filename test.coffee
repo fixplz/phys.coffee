@@ -5,6 +5,13 @@ canvas.width = 600; canvas.height = 600
 document.body.appendChild(canvas)
 c = canvas.getContext('2d')
 
+stats = new Stats(); statsEl = stats.domElement
+statsEl.style.position = 'absolute'
+statsEl.style.left = '0px'
+statsEl.style.top = '0px'
+document.body.appendChild(statsEl)
+
+
 drawPoly = (poly) ->
   vs = poly.verts; v1 = vs[0]
   c.beginPath()
@@ -44,12 +51,15 @@ bodies.push Body(Vec(300,400), [Box(600,30)], Infinity)
 
 space = Space(bodies)
 
-t = 1/30
+t = 1/120
 
 
 x = setInterval(
   ->
+    stats.begin()
     space.update t, 5
+    stats.end()
+
     c.clearRect 0,0, canvas.width,canvas.height
     drawSpace space
   1000*t
