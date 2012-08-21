@@ -1,3 +1,7 @@
+<div id=stage-frame>
+  <canvas id=stage width=600 height=500></canvas>
+</div>
+
 <script type="text/javascript" src="http://coffeescript.org/extras/coffee-script.js"></script>
 
 <script type="text/javascript" src="https://github.com/mrdoob/stats.js/raw/master/build/Stats.js"></script>
@@ -5,3 +9,17 @@
 <script type="text/coffeescript" src="phys.coffee"></script>
 <script type="text/coffeescript" src="test.coffee"></script>
 
+<style type="text/css">
+#stage-frame {
+  position: relative;
+  display: inline-block;
+  border: 4px solid #333;
+  border-radius: 20px;
+}
+
+#stats {
+  position: absolute;
+  right: 10px; top: 10px;
+}
+
+</style>

@@ -97,7 +97,7 @@ Box = (w,h) ->
   Poly([Vec(-w/2,-h/2), Vec(-w/2, h/2), Vec(w/2, h/2), Vec(w/2, -h/2)])
 
 
-Body = (pos,shapes,density=1) ->
+Body = (pos,shapes,density=1,ang=0) ->
   area = 0; inertia = 0
   for s in shapes
     area += s.area
@@ -107,7 +107,7 @@ Body = (pos,shapes,density=1) ->
 
   {
     id: Body.tag++
-    pos, ang: 0
+    pos, ang
     vel: Vec(0,0), rot: 0
     snap: Vec(0,0), asnap: 0
 
@@ -290,6 +290,7 @@ Space.methods =
     num = @bodies.length
     for i in [0...num] then for j in [i+1...num]
       a = @bodies[i]; b = @bodies[j]
+      continue if a.mass is Infinity and b.mass is Infinity
       for sa,ia in a.transform then for sb,ib in b.transform
         if col = Collision.check(sa, sb)
           hash = a.id << 22 | b.id << 12 | ia << 8 | ib << 4
