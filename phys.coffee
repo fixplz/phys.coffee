@@ -34,6 +34,7 @@ Vec.methods =
   unit: -> l = @len(); @x /= l; @y /= l; @
   # rotate: ({x,y}) -> Vec(@x*x - @y*y, @y*x + @x*y)
   rotate: ({x,y}) -> x_ = @x*x - @y*y; y_ = @y*x + @x*y; @x = x_; @y = y_; @
+  rotate_: (x,y) -> x_ = @x*x - @y*y; y_ = @y*x + @x*y; @x = x_; @y = y_; @
   toString: -> "{#{@x},#{@y}}"
 
 Vec.polar = (a) -> Vec(Math.cos(a), Math.sin(a))
@@ -215,7 +216,7 @@ Collision =
   polyCircle: (p,c) ->
     if sep = Collision.sepAxisPC(p,c)
       [max,i] = sep
-      [v1,v2] = Poly.sides(p.verts)[i]
+      v1 = p.verts[i]; v2 = p.verts[(i+1) % p.verts.length]
       a = p.axes[i]
       d = a.n.cross(c.center)
       corner = (v) -> Collision.circleCircle({center: v, radius: 0}, c)
@@ -282,7 +283,7 @@ Contact.methods =
     limitT = newN * 0.8
     newT = Math.min(limitT, Math.max(-limitT, @jT + jT))
 
-    @applyVel @vobj.set(@n).rotate(Vec(newN - @jN, newT - @jT))
+    @applyVel @vobj.set(@n).rotate_(newN - @jN, newT - @jT)
 
     @jN = newN; @jT = newT
 
