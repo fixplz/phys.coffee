@@ -112,7 +112,7 @@ Box = (w,h) ->
   Poly([Vec(-w/2,-h/2), Vec(-w/2, h/2), Vec(w/2, h/2), Vec(w/2, -h/2)])
 
 
-Body = (pos,shapes,density=1,ang=0) ->
+Body = (pos,shapes,density=1,ang=0,bounce=.2) ->
   area = 0; inertia = 0
   for s in shapes
     area += s.area
@@ -129,7 +129,7 @@ Body = (pos,shapes,density=1,ang=0) ->
     shapes
     transform: s.obj() for s in shapes
 
-    density
+    density, bounce
     mass, inertia
     invMass: 1 / mass
     invInertia: 1 / inertia
@@ -237,24 +237,26 @@ Collision =
       when a.radius and b.radius then Collision.circleCircle(a,b)
 
 
-Contact = -> {
-  a: null, b: null, n: Vec(), n2: Vec(), p: Vec(), t: 0
-  jN: 0, jT: 0, massN: 0, massT: 0, snapDist: 0
+Contact = (a,b) -> {
+  a, b
+  n: Vec(), n2: Vec(), p: Vec(), t: 0
+  jN: 0, jT: 0, massN: 0, massT: 0, snapDist: 0, bounceTgt: 0
   r1: Vec(), r2: Vec(), r1n: Vec(), r2n: Vec(), vobj: Vec()
   __proto__: Contact.methods
 }
 
 Contact.methods =
-  update: (@a,@b, dist,n, p, @t) ->
+  update: (dist,n, p, @t) ->
     @n.set(n); @p.set(p); @n2.set(n).perp()
-    @r1.set(p).sub(a.pos); @r1n.set(@r1).perp()
-    @r2.set(p).sub(b.pos); @r2n.set(@r2).perp()
+    @r1.set(p).sub(@a.pos); @r1n.set(@r1).perp()
+    @r2.set(p).sub(@b.pos); @r2n.set(@r2).perp()
 
     @massN = @kin(@n); @massT = @kin(@n2)
 
     @snapDist = 0.2 * -Math.min(0, dist + 0.1)
-
-    @applyVel @vobj.set(@n).rotate(Vec(@jN,@jT))
+    v = @rel @b.vel, @b.rot, @a.vel, @a.rot
+    @bounceTgt = Math.max(@a.bounce, @b.bounce) * -v.dot(@n) - @jN
+    @bounceTgt = Math.max(@bounceTgt, 0)
 
   kin: (n) ->
     1 / ( @a.invMass + @b.invMass +
@@ -267,16 +269,46 @@ Contact.methods =
   rel: (bv,br, av,ar) ->
     @vobj.set(bv).addMult(@r2n, br).sub(av).subMult(@r1n, ar)
 
-  perform: ->
+  accumulated: ->
+    @applyVel @vobj.set(@n).rotate_(@jN,@jT)
+
+  correction: ->
     s = @rel @b.snap, @b.asnap, @a.snap, @a.asnap
 
     snapN = @massN * (@snapDist - s.dot(@n))
-    # del s
     @applySnap @vobj.set(@n).mult(snapN) if snapN > 0
 
     v = @rel @b.vel, @b.rot, @a.vel, @a.rot
 
     jN = @massN * -v.dot(@n)
+    newN = Math.max(0, @jN + jN)
+
+    @applyVel @vobj.set(@n).mult(newN - @jN)
+    @jN = newN
+
+  interaction: ->
+    v = @rel @b.vel, @b.rot, @a.vel, @a.rot
+
+    jN = @massN * (-v.dot(@n) + @bounceTgt)
+    jT = @massT * -v.dot(@n2)
+
+    newN = Math.max(0, @jN + jN)
+    limitT = newN * 0.8
+    newT = Math.min(limitT, Math.max(-limitT, @jT + jT))
+
+    @applyVel @vobj.set(@n).rotate_(newN - @jN, newT - @jT)
+
+    @jN = newN; @jT = newT
+
+  perform: ->
+    s = @rel @b.snap, @b.asnap, @a.snap, @a.asnap
+
+    snapN = @massN * (@snapDist - s.dot(@n))
+    @applySnap @vobj.set(@n).mult(snapN) if snapN > 0
+
+    v = @rel @b.vel, @b.rot, @a.vel, @a.rot
+
+    jN = @massN * (-v.dot(@n) + @bounceTgt)
     jT = @massT * -v.dot(@n2)
 
     newN = Math.max(0, @jN + jN)
@@ -313,14 +345,23 @@ Space.methods =
             unless ct = @cts[hash|id]
               ct = @cts[hash|id] = Contact()
             ct.update(a,b, col.dist, col.n, p, @t, id)
+    curCts = []
 
     for id,ct of @cts
       if ct.t+3 <= @t
         delete @cts[id]
+      else
+        curCts.push ct
 
-    for _ in [0..iters]
-      for id,ct of @cts when ct.t == @t
-        ct.perform()
+    for ct in curCts
+      ct.accumulated()
+    for _ in [1..iters]
+      for id,ct of curCts
+        ct.correction()
+    for _ in [1..iters]
+      for id,ct of curCts
+        ct.interaction()
+
 
   find: (v,v2=v) ->
     res = []
