@@ -25,6 +25,7 @@ drawContact = (ct) ->
   c.closePath()
   c.fill()
 drawSpace = (space) ->
+  c.clearRect 0,0, canvas.width,canvas.height
   c.fillStyle = '#333'
   for body in space.bodies then for s in body.transform
     switch
@@ -55,15 +56,12 @@ space = Space(bodies)
 
 t = 1/120
 
-
 setInterval(
   ->
     stats.begin()
     space.update t, 3
     stats.end()
 
-    c.clearRect 0,0, canvas.width,canvas.height
-    drawSpace space
     if dragging
       b = dragging
       tgt = mouseLast.cp().add(draggingOffset)
@@ -85,3 +83,9 @@ canvas.onmousedown = (e) ->
   draggingOffset = dragging.pos.cp().sub(mouseLast)
 canvas.onmouseup = ->
   dragging = null
+
+reqFrame = window.mozRequestAnimationFrame || window.webkitRequestAnimationFrame
+run = ->
+  reqFrame run
+  drawSpace space
+reqFrame run
