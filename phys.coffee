@@ -51,9 +51,12 @@ Circle = (radius) -> {
   radius
   area: radius*radius * Math.PI
   inertia: radius*radius / 2
-  obj: -> { center: null, radius }
+  obj: -> { center: null, radius, area: { p1: null, p2: null } }
   update: (obj,body) ->
     obj.center = body.pos
+    ext = Vec(@radius,@radius)
+    obj.area.p1 = body.pos.cp().sub(ext)
+    obj.area.p2 = body.pos.cp().add(ext)
 }
 
 
@@ -75,7 +78,11 @@ Poly = (verts) -> {
       bi = v1.dot(v1) + v2.dot(v2) + v1.dot(v2)
       a += ai * bi; b += bi
     a / (6 * b) )
-  obj: -> { verts: @verts.map(-> Vec()), axes: @axes.map(-> Axis(Vec())) }
+  obj: -> {
+    verts: @verts.map(-> Vec())
+    axes: @axes.map(-> Axis(Vec()))
+    area: { p1: null, p2: null }
+  }
   update: (obj,body) ->
     dir = Vec.polar(body.ang)
     vobj = Vec(0,0)
@@ -86,6 +93,13 @@ Poly = (verts) -> {
       n = a.n.cp().rotate(dir)
       obj.axes[i].n.set(n)
       obj.axes[i].d = n.dot(body.pos) + a.d
+    l = Infinity; r = -Infinity
+    t = Infinity; b = -Infinity
+    for v in obj.verts
+      l = Math.min(l,v.x); r = Math.max(r,v.x)
+      t = Math.min(t,v.y); b = Math.max(b,v.y)
+    obj.area.p1 = Vec(l,t)
+    obj.area.p2 = Vec(r,b)
 }
 
 Poly.sides = (xs) ->
@@ -307,6 +321,15 @@ Space.methods =
       for id,ct of @cts when ct.t == @t
         ct.perform()
 
+  find: (v,v2=v) ->
+    res = []
+    for b in @bodies
+      for s in b.transform
+        a = s.area
+        if a.p1.x < v.x && a.p1.y < v.y && v2.x < a.p2.x && v2.y < a.p2.y
+          res.push(b)
+          break
+    res
 
 exports = window || module.exports
 exports.phys = { Vec,Axis, Circle,Poly,Box, Body, Space }
