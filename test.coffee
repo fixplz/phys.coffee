@@ -53,15 +53,32 @@ space = Space(bodies)
 t = 1/120
 
 
-x = setInterval(
+setInterval(
   ->
     stats.begin()
-    space.update t, 5
+    space.update t, 3
     stats.end()
 
     c.clearRect 0,0, canvas.width,canvas.height
     drawSpace space
+    if dragging
+      b = dragging
+      tgt = mouseLast.cp().add(draggingOffset)
+      b.vel.addMult(tgt.sub(b.pos), .4 / t).mult(.5)
   1000*t
 )
 
-# setInterval (-> clearInterval(x)), 5000
+dragging = null
+mouseLast = Vec(0,0)
+mouseDelta = Vec(0,0)
+draggingOffset = null
+
+canvas.onmousemove = (e) ->
+  cur = Vec(e.layerX || e.offsetX, e.layerY || e.offsetY)
+  mouseLast.set(cur)
+canvas.onmousedown = (e) ->
+  e.preventDefault()
+  dragging = space.find(mouseLast)[0]
+  draggingOffset = dragging.pos.cp().sub(mouseLast)
+canvas.onmouseup = ->
+  dragging = null
