@@ -322,31 +322,30 @@ Contact.methods =
     @jN = newN; @jT = newT
 
 
-Space = (bodies) -> {
-  bodies
-  t: 0
-  cts: {}
-  gravity: Vec(0,200)
-  __proto__: Space.methods
-}
+Space = (bodies) ->
+  index = new SpaceIndex()
+  for body in bodies then for obj in body.transform
+    index.add body, obj
+  {
+    bodies
+    gravity: Vec(0,200)
+    t: 0, cts: {}, index
+    __proto__: Space.methods
+  }
 
 Space.methods =
   update: (dt, iters) ->
     @t++
 
-    body.update(@gravity, dt) for body in @bodies
+    for body in @bodies
+      body.update(@gravity, dt)
 
-    num = @bodies.length
-    for i in [0...num] then for j in [i+1...num]
-      a = @bodies[i]; b = @bodies[j]
-      continue if a.mass is Infinity and b.mass is Infinity
-      for sa,ia in a.transform then for sb,ib in b.transform
-        if col = Collision.check(sa, sb)
-          hash = a.id << 22 | b.id << 12 | ia << 8 | ib << 4
-          for {p,id} in col.pts
-            unless ct = @cts[hash|id]
-              ct = @cts[hash|id] = Contact()
-            ct.update(a,b, col.dist, col.n, p, @t, id)
+    @index.scan (a,sa,saix, b,sb,sbix) =>
+      return if a == b
+      return if a.mass is Infinity && b.mass is Infinity
+      if col = Collision.check(sa, sb)
+        @addCt(a,b, saix,sbix, col)
+
     curCts = []
 
     for id,ct of @cts
@@ -364,6 +363,12 @@ Space.methods =
       for id,ct of curCts
         ct.interaction()
 
+  addCt: (a,b, ia,ib, col) ->
+    hash = (ia << 12 | ib) << 4
+    for {p,id} in col.pts
+      unless ct = @cts[hash|id]
+        ct = @cts[hash|id] = Contact(a,b)
+      ct.update(col.dist, col.n, p, @t, id)
 
   find: (v,v2=v) ->
     res = []
@@ -374,6 +379,59 @@ Space.methods =
           res.push(b)
           break
     res
+
+
+SpaceIndex = -> {
+  start: null
+  __proto__: SpaceIndex.methods
+}
+
+SpaceIndex.tag = 0
+
+SpaceIndex.methods =
+  add: (body, obj) ->
+    ins = {
+      body, obj, bounds: obj.bounds
+      prev: null, next: @start, id: SpaceIndex.tag++
+    }
+    @start.prev = ins if @start
+    @start = ins
+
+  scan: (report) ->
+    a = @start.next
+    while a
+      b = a.prev
+      if b.bounds.p1.x > a.bounds.p1.x
+        while b.prev && b.bounds.p1.x > a.bounds.p1.x
+          b = b.prev
+        @reinsert a,b
+        if not a.prev then @start = a
+      a = a.next
+    a = @start
+    while a
+      b = a.next
+      while b && a.bounds.p2.x > b.bounds.p1.x
+        if a.bounds.p1.y < b.bounds.p2.y && b.bounds.p1.y < a.bounds.p2.y
+          report a.body,a.obj,a.id, b.body,b.obj,b.id
+        b = b.next
+      a = a.next
+    # @index.sort (a,b) -> if a.bounds.p1.x < b.bounds.p1.x then -1 else 1
+    # for a,i in @index
+    #   b = @index[++i]
+    #   while b && a.bounds.p2.x > b.bounds.p1.x
+    #     if a.bounds.p1.y < b.bounds.p2.y && b.bounds.p1.y < a.bounds.p2.y
+    #       pass a,b
+    #     b = @index[++i]
+
+  reinsert: (i,at) ->
+    i.next.prev = i.prev if i.next
+    i.prev.next = i.next if i.prev
+    i.prev = at.prev; i.next = at
+    if at.prev
+      at.prev.next = i 
+    else @start = i
+    at.prev = i
+
 
 exports = window || module.exports
 exports.phys = { Vec,Axis, Circle,Poly,Box, Body, Space }
