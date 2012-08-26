@@ -54,8 +54,8 @@ Circle = (radius) -> {
   area: radius*radius * Math.PI
   inertia: radius*radius / 2
   obj: -> { center: null, radius, bounds: { p1: Vec(), p2: Vec() } }
-  update: (obj,body) ->
-    obj.center = body.pos
+  update: (obj,pos,dir) ->
+    obj.center = pos
     ext = Vec(@radius,@radius)
     obj.bounds.p1.set(pos).sub(ext)
     obj.bounds.p2.set(pos).add(ext)
@@ -85,16 +85,15 @@ Poly = (verts) -> {
     axes: @axes.map(-> Axis(Vec()))
     bounds: { p1: Vec(), p2: Vec() }
   }
-  update: (obj,body) ->
-    dir = Vec.polar(body.ang)
-    vobj = Vec(0,0)
+  update: (obj,pos,dir) ->
+    vtmp = Vec()
     @verts.forEach (v,i) ->
-      vobj.set(dir).rotate(v)
-      obj.verts[i].set(body.pos).add(vobj)
+      v2 = obj.verts[i]
+      v2.set(pos).add(vtmp.set(dir).rotate(v))
     @axes.forEach (a,i) ->
-      n = a.n.cp().rotate(dir)
-      obj.axes[i].n.set(n)
-      obj.axes[i].d = n.dot(body.pos) + a.d
+      a2 = obj.axes[i]
+      a2.n.set(a.n).rotate(dir)
+      a2.d = a2.n.dot(pos) + a.d
     l = Infinity; r = -Infinity
     t = Infinity; b = -Infinity
     for v in obj.verts
@@ -144,11 +143,13 @@ Body.methods =
   update: (gravity, dt) ->
     @pos.addMult(@vel, dt).add(@snap)
     @ang += @rot*dt + @asnap
-    @snap.set({x:0,y:0})
+    @snap.set_(0,0)
     @asnap = 0
     unless @mass is Infinity
       @vel.addMult(gravity, dt)
-    s.update @transform[i], @ for s,i in @shapes
+    dir = Vec.polar(@ang)
+    for obj,i in @transform
+      @shapes[i].update obj, @pos, dir
   applySnap: (j, rn) ->
     @snap.addMult(j, @invMass)
     @asnap += j.dot(rn) * @invInertia
