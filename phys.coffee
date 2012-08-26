@@ -21,6 +21,7 @@ Vec.methods =
 Vec.methods =
   cp: -> { x: @x, y: @y, __proto__: @__proto__ }
   set: ({@x,@y}) -> @
+  set_: (@x,@y) -> @
   opp: -> @x = -@x; @y = -@y; @
   mult: (s) -> @x *= s; @y *= s; @
   add: ({x,y}) -> @x += x; @y += y; @
@@ -52,12 +53,12 @@ Circle = (radius) -> {
   radius
   area: radius*radius * Math.PI
   inertia: radius*radius / 2
-  obj: -> { center: null, radius, area: { p1: null, p2: null } }
+  obj: -> { center: null, radius, bounds: { p1: Vec(), p2: Vec() } }
   update: (obj,body) ->
     obj.center = body.pos
     ext = Vec(@radius,@radius)
-    obj.area.p1 = body.pos.cp().sub(ext)
-    obj.area.p2 = body.pos.cp().add(ext)
+    obj.bounds.p1.set(pos).sub(ext)
+    obj.bounds.p2.set(pos).add(ext)
 }
 
 
@@ -82,7 +83,7 @@ Poly = (verts) -> {
   obj: -> {
     verts: @verts.map(-> Vec())
     axes: @axes.map(-> Axis(Vec()))
-    area: { p1: null, p2: null }
+    bounds: { p1: Vec(), p2: Vec() }
   }
   update: (obj,body) ->
     dir = Vec.polar(body.ang)
@@ -99,8 +100,8 @@ Poly = (verts) -> {
     for v in obj.verts
       l = Math.min(l,v.x); r = Math.max(r,v.x)
       t = Math.min(t,v.y); b = Math.max(b,v.y)
-    obj.area.p1 = Vec(l,t)
-    obj.area.p2 = Vec(r,b)
+    obj.bounds.p1.set_(l,t)
+    obj.bounds.p2.set_(r,b)
 }
 
 Poly.sides = (xs) ->
@@ -367,8 +368,8 @@ Space.methods =
     res = []
     for b in @bodies
       for s in b.transform
-        a = s.area
-        if a.p1.x < v.x && a.p1.y < v.y && v2.x < a.p2.x && v2.y < a.p2.y
+        a = s.bounds
+        if v.x < a.p2.x && v.y < a.p2.y && a.p1.x < v2.x && a.p1.y < v2.y
           res.push(b)
           break
     res
