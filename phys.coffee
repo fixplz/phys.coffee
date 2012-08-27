@@ -185,7 +185,7 @@ Collision =
   findVs: (poly1, poly2) ->
     pts = []
     pts.push {p: v, id: i} for v,i in poly1.verts when Collision.containsV(poly2, v)
-    pts.push {p: v, id: 16+i} for v,i in poly2.verts when Collision.containsV(poly1, v)
+    pts.push {p: v, id: 8|i} for v,i in poly2.verts when Collision.containsV(poly1, v)
     pts
 
   polyPoly: (p1, p2) ->
