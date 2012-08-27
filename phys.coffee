@@ -2,24 +2,8 @@
 Vec = (x,y) ->
   { x, y, __proto__: Vec.methods }
 
-###
 Vec.methods =
-  opp: -> Vec(-@x, -@y)
-  mult: (s) -> Vec(s*@x, s*@y)
-  add: ({x,y}) -> Vec(@x+x, @y+y)
-  sub: ({x,y}) -> Vec(@x-x, @y-y)
-  dot: ({x,y}) -> @x*x + @y*y
-  # cross: (v) -> -@dot(v.perp())
-  cross: ({x,y}) -> -(@x*-y + @y*x)
-  perp: -> Vec(-@y, @x)
-  len: -> Math.sqrt(@dot(@))
-  unit: -> l = @len(); Vec(@x/l, @y/l)
-  rotate: ({x,y}) -> Vec(@x*x - @y*y, @y*x + @x*y)
-  toString: -> "{#{@x},#{@y}}"
-###
-
-Vec.methods =
-  cp: -> { x: @x, y: @y, __proto__: @__proto__ }
+  cp: -> { @x, @y, @__proto__ }
   set: ({@x,@y}) -> @
   set_: (@x,@y) -> @
   opp: -> @x = -@x; @y = -@y; @
@@ -33,7 +17,6 @@ Vec.methods =
   perp: -> y = @y; @y = @x; @x = -y; @
   len: -> Math.sqrt(@dot(@))
   unit: -> l = @len(); @x /= l; @y /= l; @
-  # rotate: ({x,y}) -> Vec(@x*x - @y*y, @y*x + @x*y)
   rotate: ({x,y}) -> x_ = @x*x - @y*y; y_ = @y*x + @x*y; @x = x_; @y = y_; @
   rotate_: (x,y) -> x_ = @x*x - @y*y; y_ = @y*x + @x*y; @x = x_; @y = y_; @
   toString: -> "{#{@x},#{@y}}"
