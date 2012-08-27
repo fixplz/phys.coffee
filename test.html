@@ -1,0 +1,82 @@
+<!doctype html>
+<html>
+
+<head>
+  <link rel="stylesheet" type="text/css" media="screen" href="stylesheets/stylesheet.css">
+  <style type="text/css">
+    #header_wrap,#footer_wrap { background-color: #211 }
+    #header_wrap { height: 150px }
+    #header_wrap .inner { padding-top: 10px }
+    pre { font: 10pt Consolas, 'DejaVu Sans Mono' }
+
+    #stage-frame {
+      position: relative;
+      display: inline-block;
+      border: 2px solid #200;
+      border-radius: 8px;
+    }
+    #stats {
+      position: absolute;
+      right: 10px; top: 10px;
+    }
+  </style>
+</head>
+
+<body>
+<div class=wrapper>
+
+  <div id="header_wrap" class="outer"><header class="inner">
+    <h1 id="project_title">phys.coffee</h1>
+    <h2 id="project_tagline">Coffeescript rigid body physics engine</h2>
+  </header></div>
+
+  <div id="main_content_wrap" class="outer"><section id="main_content" class="inner">
+
+    <div id=stage-frame>
+      <canvas id=stage width=650 height=300></canvas>
+    </div>
+
+    <script type="text/javascript" src="http://cdnjs.cloudflare.com/ajax/libs/stats.js/r11/Stats.js"></script>
+    <script type="text/javascript" src="phys.js"></script>
+    <script type="text/javascript" src="test.js"></script>
+
+
+    <p>View this in Firefox to see it in slow motion.</p>
+
+<pre>
+shapes = [
+  [ Box(40, 40) ]
+  [ Circle(20) ]
+  [ Box(15, 40), Box(40, 15) ]
+]
+for _ in [0 .. 60]
+  pos = Vec(150 + 400 * Math.random(), 200 * Math.random())
+  i = Math.floor(3 * Math.random())
+  bodies.push Body(pos, shapes[i])
+bodies.push(
+  Body( Vec( 650/2, 250), [Box(420, 50)], Infinity,   0 )
+  Body( Vec(650-80, 200), [Box(150, 50)], Infinity, -.8 )
+  Body( Vec(    80, 200), [Box(150, 50)], Infinity,  .8 )
+)</pre>
+
+    <p>
+      This was a brief experiment to write the tiniest rigid body physics library ever, but I got carried away with features and optimizations and it is now about 400 lines of code.
+    </p>
+    <p>
+      The minimum core could be about 150 lines.
+    </p>
+
+    <h1><a href="https://github.com/fixplz/phys.coffee">Get the code</a></h1>
+    <h1><a href="https://github.com/fixplz/phys.coffee/wiki/Reference">Reference</a></h1>
+
+  </section></div>
+
+  <div id="footer_wrap" class="outer">
+    <footer class="inner">
+      <p class="copyright">Slate theme maintained by <a href="https://github.com/jsncostello">Jason Costello</a></p>
+    </footer>
+  </div>
+
+</div>
+</body>
+</html>
