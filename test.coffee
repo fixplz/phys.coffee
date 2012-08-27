@@ -31,21 +31,21 @@ drawSpace = (space) ->
     switch
       when s.verts then drawPoly s
       when s.radius then drawCircle s
-  c.fillStyle = '#393'
+  c.fillStyle = '#595'
   for _,ct of space.cts when ct.t == space.t
     drawContact ct
 
 
+shapes = [
+  [Box(25,25)]
+  [Circle(15)]
+  [Box(3/8*30,30), Box(30,3/8*30)]
+]
 bodies = []
-
-for _ in [0..80]
-  pos = Vec(150+300*Math.random(), 200*Math.random())
-  shapes = switch Math.floor(3*Math.random())
-    when 0 then [Box(30,30)]
-    when 1 then [Circle(18)]
-    when 2 then [Box(15,40), Box(40,15)]
-  bodies.push Body(pos, shapes)
-
+for _ in [0..150]
+  pos = Vec(150+400*Math.random(), 400*Math.random())
+  i = Math.floor(3*Math.random())
+  bodies.push Body(pos, shapes[i])
 bodies.push(
   Body(Vec(650/2,450),  [Box(420,30)], Infinity, 0)
   Body(Vec(650-80,400), [Box(150,30)], Infinity, -.8)
@@ -54,14 +54,13 @@ bodies.push(
 
 space = Space(bodies)
 
-t = 1/120
 
+t = 1/120
 setInterval(
   ->
     stats.begin()
     space.update t, 3
     stats.end()
-
     if dragging
       b = dragging
       tgt = mouseLast.cp().add(draggingOffset)
@@ -80,12 +79,16 @@ canvas.onmousemove = (e) ->
 canvas.onmousedown = (e) ->
   e.preventDefault()
   dragging = space.find(mouseLast)[0]
-  draggingOffset = dragging.pos.cp().sub(mouseLast)
+  if dragging
+    draggingOffset = dragging.pos.cp().sub(mouseLast)
 canvas.onmouseup = ->
   dragging = null
 
 reqFrame = window.mozRequestAnimationFrame || window.webkitRequestAnimationFrame
+drawT = 0
 run = ->
   reqFrame run
-  drawSpace space
+  if space.t != drawT
+    drawT = space.t
+    drawSpace space
 reqFrame run
