@@ -69,14 +69,13 @@ Poly = (verts) -> {
     bounds: { p1: Vec(), p2: Vec() }
   }
   update: (obj,pos,dir) ->
-    vtmp = Vec()
     @verts.forEach (v,i) ->
-      v2 = obj.verts[i]
-      v2.set(pos).add(vtmp.set(dir).rotate(v))
+      tv = obj.verts[i]
+      tv.set(pos).add(Vec().set(dir).rotate(v))
     @axes.forEach (a,i) ->
-      a2 = obj.axes[i]
-      a2.n.set(a.n).rotate(dir)
-      a2.d = a2.n.dot(pos) + a.d
+      ta = obj.axes[i]
+      ta.n.set(a.n).rotate(dir)
+      ta.d = ta.n.dot(pos) + a.d
     l = Infinity; r = -Infinity
     t = Infinity; b = -Infinity
     for v in obj.verts
@@ -102,7 +101,6 @@ Body = (pos,shapes,density=1,ang=0,bounce=.2) ->
     inertia += s.inertia
   mass = area * density
   inertia = mass * inertia
-
   {
     id: Body.tag++
     pos, ang
@@ -148,7 +146,7 @@ Body.methods =
 
 
 Collision =
-  sepAxisPP: (poly1,poly2) ->
+  sepAxisPP: (poly1, poly2) ->
     maxd = -Infinity; maxn = null
     for a in poly1.axes
       d = Infinity
@@ -160,9 +158,7 @@ Collision =
     Axis(maxn, maxd)
 
   containsV: (poly, v) ->
-    for a in poly.axes
-      if a.n.dot(v) > a.d
-        return false
+    return false for a in poly.axes when a.n.dot(v) > a.d
     true
 
   findVs: (poly1, poly2) ->
@@ -171,46 +167,45 @@ Collision =
     pts.push {p: v, id: 8|i} for v,i in poly2.verts when Collision.containsV(poly1, v)
     pts
 
-  polyPoly: (p1, p2) ->
-    a1 = Collision.sepAxisPP(p1, p2)
-    a2 = Collision.sepAxisPP(p2, p1)
+  polyPoly: (poly1, poly2) ->
+    a1 = Collision.sepAxisPP(poly1, poly2)
+    a2 = Collision.sepAxisPP(poly2, poly1)
     if a1 and a2
       n = if a1.d > a2.d then a1.n else a2.n.cp().opp()
       d = Math.max(a1.d, a2.d)
-      { n, dist: d, pts: Collision.findVs p1, p2 }
+      { n, dist: d, pts: Collision.findVs poly1, poly2 }
     else false
 
-  circleCircle: (c1, c2) ->
-    r = c2.center.cp().sub(c1.center)
-    min = c1.radius + c2.radius
+  circleCircle: (circle1, circle2) ->
+    r = circle2.center.cp().sub(circle1.center)
+    min = circle1.radius + circle2.radius
     return false if r.dot(r) > min*min
     len = r.len()
-    p = c1.center.cp().addMult(r, 0.5 + (c1.radius - 0.5*min)/len)
+    p = circle1.center.cp().addMult(r, 0.5 + (circle1.radius - 0.5*min)/len)
     r.mult(1/len)
-    n: r, dist: len - min
-    pts: [ p: p, id: 0 ]
+    { n: r, dist: len - min, pts: [ {p: p, id: 0} ] }
 
-  sepAxisPC: (p,c) ->
+  sepAxisPC: (poly, circle) ->
     max = -Infinity; maxi = 0
-    for a,i in p.axes
-      d = a.n.dot(c.center) - a.d - c.radius
+    for a,i in poly.axes
+      d = a.n.dot(circle.center) - a.d - circle.radius
       if d > max
         max = d; maxi = i
     if max < 0 then [max,maxi] else false
 
-  polyCircle: (p,c) ->
-    if sep = Collision.sepAxisPC(p,c)
+  polyCircle: (poly, circle) ->
+    if sep = Collision.sepAxisPC(poly,circle)
       [max,i] = sep
-      v1 = p.verts[i]; v2 = p.verts[(i+1) % p.verts.length]
-      a = p.axes[i]
-      d = a.n.cross(c.center)
-      corner = (v) -> Collision.circleCircle({center: v, radius: 0}, c)
+      v1 = poly.verts[i]; v2 = poly.verts[(i+1) % poly.verts.length]
+      a = poly.axes[i]
+      d = a.n.cross(circle.center)
+      corner = (v) -> Collision.circleCircle({center: v, radius: 0}, circle)
       switch
         when d > a.n.cross(v1) then corner v1
         when d < a.n.cross(v2) then corner v2
         else {
           n: a.n, dist: max
-          pts: [ p: c.center.cp().subMult(a.n, c.radius + max/2), id: i ]
+          pts: [ {p: circle.center.cp().subMult(a.n, circle.radius + max/2), id: i} ]
         }
 
   check: (a,b) ->
@@ -226,7 +221,7 @@ Contact = (a,b) -> {
   a, b
   n: Vec(), n2: Vec(), p: Vec(), t: 0
   jN: 0, jT: 0, massN: 0, massT: 0, snapDist: 0, bounceTgt: 0
-  r1: Vec(), r2: Vec(), r1n: Vec(), r2n: Vec(), vobj: Vec()
+  r1: Vec(), r2: Vec(), r1n: Vec(), r2n: Vec()
   __proto__: Contact.methods
 }
 
@@ -243,6 +238,9 @@ Contact.methods =
     @bounceTgt = Math.max(@a.bounce, @b.bounce) * -v.dot(@n) - @jN
     @bounceTgt = Math.max(@bounceTgt, 0)
 
+  rel: (bv,br, av,ar) ->
+    Vec().set(bv).addMult(@r2n, br).sub(av).subMult(@r1n, ar)
+
   kin: (n) ->
     1 / ( @a.invMass + @b.invMass +
       @a.invInertia * Math.pow(@r1.cross(n),2) +
@@ -251,24 +249,19 @@ Contact.methods =
   applySnap: (j) -> @a.applySnapOpp(j, @r1n); @b.applySnap(j, @r2n)
   applyVel: (j) -> @a.applyVelOpp(j, @r1n); @b.applyVel(j, @r2n)
 
-  rel: (bv,br, av,ar) ->
-    @vobj.set(bv).addMult(@r2n, br).sub(av).subMult(@r1n, ar)
-
   accumulated: ->
-    @applyVel @vobj.set(@n).rotate_(@jN,@jT)
+    @applyVel Vec().set(@n).rotate_(@jN,@jT)
 
   correction: ->
     s = @rel @b.snap, @b.asnap, @a.snap, @a.asnap
+    v = @rel @b.vel, @b.rot, @a.vel, @a.rot
 
     snapN = @massN * (@snapDist - s.dot(@n))
-    @applySnap @vobj.set(@n).mult(snapN) if snapN > 0
-
-    v = @rel @b.vel, @b.rot, @a.vel, @a.rot
+    @applySnap Vec().set(@n).mult(snapN) if snapN > 0
 
     jN = @massN * -v.dot(@n)
     newN = Math.max(0, @jN + jN)
-
-    @applyVel @vobj.set(@n).mult(newN - @jN)
+    @applyVel Vec().set(@n).mult(newN - @jN)
     @jN = newN
 
   interaction: ->
@@ -280,28 +273,7 @@ Contact.methods =
     newN = Math.max(0, @jN + jN)
     limitT = newN * 0.8
     newT = Math.min(limitT, Math.max(-limitT, @jT + jT))
-
-    @applyVel @vobj.set(@n).rotate_(newN - @jN, newT - @jT)
-
-    @jN = newN; @jT = newT
-
-  perform: ->
-    s = @rel @b.snap, @b.asnap, @a.snap, @a.asnap
-
-    snapN = @massN * (@snapDist - s.dot(@n))
-    @applySnap @vobj.set(@n).mult(snapN) if snapN > 0
-
-    v = @rel @b.vel, @b.rot, @a.vel, @a.rot
-
-    jN = @massN * (-v.dot(@n) + @bounceTgt)
-    jT = @massT * -v.dot(@n2)
-
-    newN = Math.max(0, @jN + jN)
-    limitT = newN * 0.8
-    newT = Math.min(limitT, Math.max(-limitT, @jT + jT))
-
-    @applyVel @vobj.set(@n).rotate_(newN - @jN, newT - @jT)
-
+    @applyVel Vec().set(@n).rotate_(newN - @jN, newT - @jT)
     @jN = newN; @jT = newT
 
 
@@ -398,13 +370,6 @@ SpaceIndex.methods =
           report a.body,a.obj,a.id, b.body,b.obj,b.id
         b = b.next
       a = a.next
-    # @index.sort (a,b) -> if a.bounds.p1.x < b.bounds.p1.x then -1 else 1
-    # for a,i in @index
-    #   b = @index[++i]
-    #   while b && a.bounds.p2.x > b.bounds.p1.x
-    #     if a.bounds.p1.y < b.bounds.p2.y && b.bounds.p1.y < a.bounds.p2.y
-    #       pass a,b
-    #     b = @index[++i]
 
   reinsert: (i,at) ->
     i.next.prev = i.prev if i.next
